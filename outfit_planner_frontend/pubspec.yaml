@@ -1,0 +1,42 @@
+name: outfit_planner_frontend
+description: A Flutter outfit planner app
+publish_to: 'none' # Remove this if publishing
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.13.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  table_calendar: ^3.0.9   
+  image_picker: ^1.1.1 
+  shared_preferences: ^2.1.1
+  file_picker: ^6.1.7
+
+  # Core UI
+  cupertino_icons: ^1.0.5
+  flutter_lints: ^6.0.0
+
+  # Networking
+  http: ^0.13.6
+
+  # Utilities
+  characters: ^1.4.0
+  vector_math: 2.1.4                # pinned by flutter_test
+  material_color_utilities: ^0.11.1
+  meta: ^1.16.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  leak_tracker: ^10.0.9
+  leak_tracker_flutter_testing: ^3.0.9
+  leak_tracker_testing: ^3.0.1
+  # test_api removed to avoid flutter_test conflict
+
+# flutter:
+ # uses-material-design: true
+  #assets:
+    #- assets/images/
