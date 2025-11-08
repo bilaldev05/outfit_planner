@@ -10,7 +10,7 @@ import os
 import shutil
 from bson import ObjectId
 
-# ========== DATABASE SETUP ==========
+
 client = MongoClient("mongodb://localhost:27017/")
 db = client["fashion_ai"]
 wardrobe_collection = db["wardrobe_items"]
