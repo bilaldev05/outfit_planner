@@ -1,6 +1,6 @@
 name: outfit_planner_frontend
 description: A Flutter outfit planner app
-publish_to: 'none' # Remove this if publishing
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Packages
   table_calendar: ^3.0.9   
   image_picker: ^1.1.1 
   shared_preferences: ^2.1.1
@@ -17,26 +19,24 @@ dependencies:
 
   # Core UI
   cupertino_icons: ^1.0.5
-  flutter_lints: ^6.0.0
 
   # Networking
   http: ^0.13.6
 
   # Utilities
   characters: ^1.4.0
-  vector_math: 2.1.4                # pinned by flutter_test
+  # vector_math removed because Flutter already provides 2.2.0
   material_color_utilities: ^0.11.1
   meta: ^1.16.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  leak_tracker: ^10.0.9
+  leak_tracker: ^11.0.2
   leak_tracker_flutter_testing: ^3.0.9
   leak_tracker_testing: ^3.0.1
-  # test_api removed to avoid flutter_test conflict
 
 # flutter:
- # uses-material-design: true
-  #assets:
-    #- assets/images/
+#   uses-material-design: true
+#   assets:
+#     - assets/images/
