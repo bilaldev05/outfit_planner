@@ -24,7 +24,7 @@ db = client[DB_NAME]
 wardrobe_collection = db[WARDROBE_COLLECTION]
 
 # ---------- MODEL ----------
-# You must install: sentence-transformers, scikit-learn, pymongo, fastapi, uvicorn
+
 # Model: all-MiniLM-L6-v2 (small & free)
 EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
 model = SentenceTransformer(EMBED_MODEL_NAME)
