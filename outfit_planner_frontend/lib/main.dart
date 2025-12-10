@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:outfit_planner_frontend/screens/home_screen.dart';
+
+import 'package:outfit_planner_frontend/screens/product_search_screen.dart';
 
 void main() {
   runApp(const OutfitPlannerApp());
@@ -16,7 +17,7 @@ class OutfitPlannerApp extends StatelessWidget {
         primarySwatch: Colors.indigo,
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const HomeScreen(),
+      home: const ProductSearchScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
