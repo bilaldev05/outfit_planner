@@ -1,4 +1,3 @@
-# backend/models.py
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
@@ -10,9 +9,7 @@ class Product(BaseModel):
     brand: str = Field(default="")
     source: str = Field(default="")
 
-    model_config = {
-        "extra": "allow"
-    }
+    model_config = {"extra": "allow"}
 
     @field_validator("title", "price", "image", "link", "brand", "source", mode="before")
     def default_str(cls, v):

@@ -1,38 +1,59 @@
-from utils import fetch_url, make_soup, sleep_polite, normalize_price
+import asyncio
+from .utils import fetch_url, make_soup, normalize_price, sleep_polite
 from models import Product
 
-BASE = "https://royaltag.com"
-
-def scrape_royaltag(query: str, max_items: int = 12) -> list[Product]:
-    url = f"{BASE}/search?q={query}"
+async def scrape_royaltag(query: str, max_items: int = 6):
     try:
-        html = fetch_url(url)
-    except Exception:
-        return []
+        base_url = "https://royaltag.com.pk"
+        url = f"{base_url}/search?q={query.replace(' ', '+')}"
+        html = await fetch_url(url)
+        soup = make_soup(html)
+        products = []
 
-    soup = make_soup(html)
-    products = []
-    cards = soup.select(".product, .product-list-item")
-    for c in cards[:max_items]:
-        try:
-            title_node = c.select_one(".product-title")
-            price_node = c.select_one(".price")
-            img_node = c.select_one("img")
-            link_node = c.select_one("a")
+        items = soup.select(".product-item")[:max_items]
+        for p in items:
+            # Title
+            title = p.select_one(".title").get_text(strip=True) if p.select_one(".title") else ""
+            # Price
+            price = normalize_price(p.select_one(".price").get_text(strip=True)) if p.select_one(".price") else ""
 
-            image = img_node.attrs.get("src") or "" if img_node else ""
-            href = link_node.attrs.get("href") if link_node else ""
-            if href.startswith("/"): href = BASE + href
+            # Image extraction
+            image = ""
+            img_tag = p.select_one("img")
+            if img_tag:
+                # Prefer lazy-loaded data-src
+                image = img_tag.get("data-src") or img_tag.get("src") or ""
+
+                # If inside <picture> tag
+                if not image:
+                    picture_tag = p.select_one("picture source")
+                    if picture_tag:
+                        image = picture_tag.get("data-srcset") or picture_tag.get("srcset") or ""
+
+                # Clean up relative URLs
+                if image.startswith("//"):
+                    image = "https:" + image
+                elif image.startswith("/"):
+                    image = base_url + image
+                elif not image.startswith("http"):
+                    image = base_url + "/" + image
+
+            # Link
+            a_tag = p.select_one("a")
+            link = base_url + a_tag.get("href") if a_tag else ""
 
             products.append(Product(
-                title=title_node.get_text(strip=True) if title_node else "",
-                price=normalize_price(price_node.get_text()) if price_node else "",
+                title=title,
+                price=price,
                 image=image,
-                link=href,
-                brand="Royal Tag",
-                source=url
+                link=link,
+                brand="RoyalTag",
+                source="RoyalTag"
             ))
-        except Exception:
-            continue
-    sleep_polite()
-    return products
+
+        await sleep_polite()
+        return products
+
+    except Exception as e:
+        print("RoyalTag scraper failed:", e)
+        return []

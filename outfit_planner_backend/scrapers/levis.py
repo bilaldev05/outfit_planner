@@ -1,38 +1,24 @@
-from utils import fetch_url, make_soup, sleep_polite, normalize_price
+import asyncio
+from .utils import fetch_url, make_soup, normalize_price, sleep_polite
 from models import Product
 
-BASE = "https://www.levi.com"
-
-def scrape_levis(query: str, max_items: int = 12) -> list[Product]:
-    url = f"{BASE}/IN/en/search?q={query}"
+async def scrape_levis(query: str, max_items: int = 6):
     try:
-        html = fetch_url(url)
-    except Exception:
+        url = f"https://www.levi.com.pk/search?q={query.replace(' ', '+')}"
+        html = await fetch_url(url)
+        soup = make_soup(html)
+        products = []
+
+        items = soup.select(".product-tile")[:max_items]
+        for p in items:
+            title = p.select_one(".product-title").get_text(strip=True) if p.select_one(".product-title") else ""
+            price = normalize_price(p.select_one(".price").get_text(strip=True)) if p.select_one(".price") else ""
+            image = p.select_one("img").get("src") if p.select_one("img") else ""
+            link = "https://www.levi.com.pk" + p.select_one("a").get("href") if p.select_one("a") else ""
+            products.append(Product(title=title, price=price, image=image, link=link, brand="Levis", source="Levis"))
+
+        await sleep_polite()
+        return products
+    except Exception as e:
+        print("Levis scraper failed:", e)
         return []
-
-    soup = make_soup(html)
-    products = []
-    cards = soup.select(".product-tile, .product-card")
-    for c in cards[:max_items]:
-        try:
-            title_node = c.select_one(".product-name") or c.select_one(".product-title")
-            price_node = c.select_one(".product-price") or c.select_one(".price")
-            img_node = c.select_one("img")
-            link_node = c.select_one("a")
-
-            image = img_node.attrs.get("data-src") or img_node.attrs.get("src") if img_node else ""
-            href = link_node.attrs.get("href") if link_node else ""
-            if href.startswith("/"): href = BASE + href
-
-            products.append(Product(
-                title=title_node.get_text(strip=True) if title_node else "",
-                price=normalize_price(price_node.get_text()) if price_node else "",
-                image=image,
-                link=href,
-                brand="Levi's",
-                source=url
-            ))
-        except Exception:
-            continue
-    sleep_polite()
-    return products

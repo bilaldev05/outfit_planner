@@ -1,10 +1,15 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional, List
+import asyncio
 import hashlib
+import traceback
+from typing import Optional, List
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from models import Product
 from cache import get_cached, set_cache
+
 from scrapers.outfitters import scrape_outfitters
 from scrapers.breakout import scrape_breakout
 from scrapers.edenrobe import scrape_edenrobe
@@ -13,107 +18,88 @@ from scrapers.levis import scrape_levis
 from scrapers.uno import scrape_uno
 from scrapers.royaltag import scrape_royaltag
 from scrapers.gulahmad import scrape_gulahmad
-from fastapi.middleware.cors import CORSMiddleware
-
-
 
 app = FastAPI(title="Product Scraper Service")
 
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://127.0.0.1:8000",
-    "*" 
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,      # or ["*"] for all
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],        # allow GET, POST, etc.
-    allow_headers=["*"],        # allow custom headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# ------------------------
-# Pydantic v2 Models
-# ------------------------
+
 class SearchRequest(BaseModel):
-    category: str = Field(...)
+    category: str
     color: Optional[str] = None
-    location: Optional[str] = None
-    max_results: Optional[int] = 36
+    max_results: int = 36
 
-    model_config = {
-        "extra": "allow"
-    }
-
-
-# ------------------------
-# Helpers
-# ------------------------
-def make_query_key(category: str, color: Optional[str], location: Optional[str]) -> str:
-    s = f"{category}|{color or ''}|{location or ''}"
+def make_query_key(category: str, color: Optional[str]) -> str:
+    s = f"{category}|{color or ''}"
     return hashlib.sha1(s.encode()).hexdigest()
 
 
-# ------------------------
-# Routes
-# ------------------------
 @app.post("/search_products")
 async def search_products(req: SearchRequest):
     try:
-        # Compose query text
-        qparts = [req.color, req.category]
-        query_text = " ".join([p for p in qparts if p]).strip()
+        query = " ".join(filter(None, [req.color, req.category]))
+        cache_key = make_query_key(req.category, req.color)
 
-        # Check cache first
-        cache_key = make_query_key(req.category, req.color, req.location)
+        # return cached
         cached = get_cached(cache_key)
         if cached:
-            return {
-                "source": "cache",
-                "products": cached  # cached should already be serialized
-            }
+            return {"source": "cache", "products": cached}
 
-        # Determine max per brand
-        max_per_brand = max(6, (req.max_results // 8) + 1)
-
-        # Run scrapers
         scrapers = [
-            scrape_outfitters, scrape_breakout, scrape_edenrobe, scrape_nishat,
-            scrape_levis, scrape_uno, scrape_royaltag, scrape_gulahmad
+            scrape_outfitters,
+            scrape_breakout,
+            scrape_edenrobe,
+            scrape_nishat,
+            scrape_levis,
+            scrape_uno,
+            scrape_royaltag,
+            scrape_gulahmad,
         ]
+
+        max_per_brand = max(4, req.max_results // len(scrapers))
+
+        # RUN ASYNC SCRAPERS CONCURRENTLY
+        tasks = [scraper(query, max_per_brand) for scraper in scrapers]
+        results_list = await asyncio.gather(*tasks, return_exceptions=True)
+
         results: List[Product] = []
-        for scraper in scrapers:
-            try:
-                results.extend(scraper(query_text, max_items=max_per_brand))
-            except Exception:
-                continue  # skip failing scraper
-
-        # Deduplicate by link + title
-        seen = set()
-        dedup: List[Product] = []
-        for p in results:
-            key = (p.link or "") + "|" + (p.title or "")
-            if key in seen:
+        for idx, res in enumerate(results_list):
+            if isinstance(res, Exception):
+                print(f"{scrapers[idx].__name__} scraper failed:", res)
                 continue
-            seen.add(key)
-            dedup.append(p)
+            for item in res:
+                if isinstance(item, dict):
+                    results.append(Product(**item))
+                else:
+                    if not item.image:
+                        item.image = ""
+                    results.append(item)
 
-        # Sort: prioritize image + price
-        dedup.sort(key=lambda x: (1 if x.image else 0, 1 if x.price else 0), reverse=True)
-        dedup = dedup[: req.max_results]
+        # Deduplicate
+        seen = set()
+        dedup = []
+        for p in results:
+            key = (p.link or "") + (p.title or "")
+            if key not in seen:
+                seen.add(key)
+                dedup.append(p)
 
-        # Cache results (store as list of dicts)
-        set_cache(cache_key, [p.model_dump() for p in dedup], ttl_seconds=24*3600)
+        dedup = dedup[:req.max_results]
+        serialized = [p.model_dump() for p in dedup]
 
-        # Return serialized products
-        return {
-            "source": "live",
-            "products": [p.model_dump() for p in dedup]
-        }
+        set_cache(cache_key, serialized, ttl_seconds=6 * 3600)
+        return {"source": "live", "products": serialized}
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
     

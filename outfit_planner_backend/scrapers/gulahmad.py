@@ -1,38 +1,24 @@
-from utils import fetch_url, make_soup, sleep_polite, normalize_price
+import asyncio
+from .utils import fetch_url, make_soup, normalize_price, sleep_polite
 from models import Product
 
-BASE = "https://www.gulahmadshop.com"
-
-def scrape_gulahmad(query: str, max_items: int = 12) -> list[Product]:
-    url = f"{BASE}/search?q={query}"
+async def scrape_gulahmad(query: str, max_items: int = 6):
     try:
-        html = fetch_url(url)
-    except Exception:
+        url = f"https://gulahmad.com.pk/search?q={query.replace(' ', '+')}"
+        html = await fetch_url(url)
+        soup = make_soup(html)
+        products = []
+
+        items = soup.select(".product-card")[:max_items]
+        for p in items:
+            title = p.select_one(".product-name").get_text(strip=True) if p.select_one(".product-name") else ""
+            price = normalize_price(p.select_one(".price").get_text(strip=True)) if p.select_one(".price") else ""
+            image = p.select_one("img").get("src") if p.select_one("img") else ""
+            link = "https://gulahmad.com.pk" + p.select_one("a").get("href") if p.select_one("a") else ""
+            products.append(Product(title=title, price=price, image=image, link=link, brand="GulAhmed", source="GulAhmed"))
+
+        await sleep_polite()
+        return products
+    except Exception as e:
+        print("GulAhmed scraper failed:", e)
         return []
-
-    soup = make_soup(html)
-    products = []
-    cards = soup.select(".product, .product-item, .grid-item")
-    for c in cards[:max_items]:
-        try:
-            title_node = c.select_one(".product-title") or c.select_one("h2")
-            price_node = c.select_one(".price")
-            img_node = c.select_one("img")
-            link_node = c.select_one("a")
-
-            image = img_node.attrs.get("data-src") or img_node.attrs.get("src") if img_node else ""
-            href = link_node.attrs.get("href") if link_node else ""
-            if href.startswith("/"): href = BASE + href
-
-            products.append(Product(
-                title=title_node.get_text(strip=True) if title_node else "",
-                price=normalize_price(price_node.get_text()) if price_node else "",
-                image=image,
-                link=href,
-                brand="Gulahmad",
-                source=url
-            ))
-        except Exception:
-            continue
-    sleep_polite()
-    return products

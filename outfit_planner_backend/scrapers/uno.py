@@ -1,40 +1,24 @@
-# scrapers/outfitters.py
-from utils import fetch_url, make_soup, sleep_polite, normalize_price
-
+import asyncio
+from .utils import fetch_url, make_soup, normalize_price, sleep_polite
 from models import Product
 
-BASE = "https://uno.com.pk"
-
-def scrape_uno(query: str, max_items: int = 12) -> list[Product]:
-    url = f"{BASE}/search?q={query}"
+async def scrape_uno(query: str, max_items: int = 6):
     try:
-        html = fetch_url(url)
-    except Exception:
+        url = f"https://uno.com.pk/search?q={query.replace(' ', '+')}"
+        html = await fetch_url(url)
+        soup = make_soup(html)
+        products = []
+
+        items = soup.select(".product-card")[:max_items]
+        for p in items:
+            title = p.select_one(".product-name").get_text(strip=True) if p.select_one(".product-name") else ""
+            price = normalize_price(p.select_one(".price").get_text(strip=True)) if p.select_one(".price") else ""
+            image = p.select_one("img").get("src") if p.select_one("img") else ""
+            link = "https://uno.com.pk" + p.select_one("a").get("href") if p.select_one("a") else ""
+            products.append(Product(title=title, price=price, image=image, link=link, brand="Uno", source="Uno"))
+
+        await sleep_polite()
+        return products
+    except Exception as e:
+        print("Uno scraper failed:", e)
         return []
-
-    soup = make_soup(html)
-    products = []
-    cards = soup.select(".product, .productCard")
-    for c in cards[:max_items]:
-        try:
-            title_node = c.select_one(".product-title") or c.select_one("h3")
-            price_node = c.select_one(".price")
-            img_node = c.select_one("img")
-            link_node = c.select_one("a")
-
-            image = img_node.attrs.get("src") or "" if img_node else ""
-            href = link_node.attrs.get("href") if link_node else ""
-            if href.startswith("/"): href = BASE + href
-
-            products.append(Product(
-                title=title_node.get_text(strip=True) if title_node else "",
-                price=normalize_price(price_node.get_text()) if price_node else "",
-                image=image,
-                link=href,
-                brand="Uno",
-                source=url
-            ))
-        except Exception:
-            continue
-    sleep_polite()
-    return products

@@ -1,26 +1,18 @@
-# backend/cache.py
-from pymongo import MongoClient, ASCENDING
-import datetime
-import os
+import time
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGO_URI)
-db = client["scrape_cache"]
-cache_col = db["product_cache"]
+_CACHE = {}
 
-# Ensure TTL index on 'expires_at' for automatic eviction
-cache_col.create_index([("query", ASCENDING), ("source", ASCENDING)])
-if "expires_at_1h" not in cache_col.index_information():
-    cache_col.create_index("expires_at", expireAfterSeconds=0)
+def get_cached(key: str):
+    data = _CACHE.get(key)
+    if not data:
+        return None
+    if data["expires"] < time.time():
+        del _CACHE[key]
+        return None
+    return data["value"]
 
-def get_cached(query_key: str):
-    doc = cache_col.find_one({"query": query_key})
-    return doc["results"] if doc else None
-
-def set_cache(query_key: str, results: list, ttl_seconds: int = 86400):
-    expires_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=ttl_seconds)
-    cache_col.update_one(
-        {"query": query_key},
-        {"$set": {"results": results, "expires_at": expires_at}},
-        upsert=True
-    )
+def set_cache(key: str, value, ttl_seconds: int = 86400):
+    _CACHE[key] = {
+        "value": value,
+        "expires": time.time() + ttl_seconds
+    }
