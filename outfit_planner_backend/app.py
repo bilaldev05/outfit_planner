@@ -45,7 +45,7 @@ async def search_products(req: SearchRequest):
         query = " ".join(filter(None, [req.color, req.category]))
         cache_key = make_query_key(req.category, req.color)
 
-        # return cached
+        
         cached = get_cached(cache_key)
         if cached:
             return {"source": "cache", "products": cached}
