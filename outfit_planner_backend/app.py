@@ -63,7 +63,7 @@ async def search_products(req: SearchRequest):
 
         max_per_brand = max(4, req.max_results // len(scrapers))
 
-        # RUN ASYNC SCRAPERS CONCURRENTLY
+        
         tasks = [scraper(query, max_per_brand) for scraper in scrapers]
         results_list = await asyncio.gather(*tasks, return_exceptions=True)
 
