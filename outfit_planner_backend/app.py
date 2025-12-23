@@ -25,7 +25,7 @@ from scrapers.royaltag import scrape_royaltag
 from scrapers.gulahmad import scrape_gulahmad
 
 # ----------------- MongoDB Setup -----------------
-MONGO_URI = "mongodb://localhost:27017"  # replace with your Mongo URI
+MONGO_URI = "mongodb://localhost:27017"  
 client = AsyncIOMotorClient(MONGO_URI)
 db = client["outfit_planner"]
 cart_collection = db["cart_items"]
