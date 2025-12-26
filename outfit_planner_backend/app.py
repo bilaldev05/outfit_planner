@@ -31,7 +31,7 @@ db = client["outfit_planner"]
 cart_collection = db["cart_items"]
 outfit_collection = db["built_outfits"]
 
-# ----------------- FastAPI Setup -----------------
+
 app = FastAPI(title="Product Scraper Service")
 
 app.add_middleware(
